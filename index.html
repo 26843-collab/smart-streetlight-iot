@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Streetlight IoT - ระบบไฟถนนอัจฉริยะวิเคราะห์การจราจร</title>
+  <meta name="description" content="ระบบควบคุมไฟถนนอัจฉริยะ IoT ตรวจจับยานพาหนะอัตโนมัติ พร้อมระบบตั้งเวลา 12 ชม. และตารางวิเคราะห์ข้อมูลการจราจร">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Chart.js for Traffic Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient Background Glows -->
+  <div class="glow-orb glow-orb-1"></div>
+  <div class="glow-orb glow-orb-2"></div>
+
+  <!-- Header / Navigation Bar -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand-logo">
+        <div class="lamp-icon-box">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7zm-2 18h4v1c0 .55-.45 1-1 1h-2c-.55 0-1-.45-1-1v-1z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">Smart Streetlight IoT</h1>
+          <p class="brand-subtitle">ระบบหลอดไฟถนนอัจฉริยะ & วิเคราะห์การจราจร</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <!-- Device Connection Status -->
+      <div class="connection-badge" id="connectionBadge">
+        <span class="status-dot"></span>
+        <span id="connectionText">โหมดจำลอง (Simulation)</span>
+      </div>
+      <!-- Mode Switch Modal Button -->
+      <button class="btn btn-outline" id="btnSettings" title="ตั้งค่าการเชื่อมต่อ ESP32">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>การเชื่อมต่อ ESP32</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="dashboard-container">
+
+    <!-- Top Grid: Interactive Street Visualizer & Real-time Telemetry -->
+    <section class="visualizer-section glass-card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="icon-indicator"></span>
+          <h3>สถานการณ์จำลองบนถนน & หลอดไฟแบบเรียลไทม์ (Live Simulation)</h3>
+        </div>
+        <div class="simulation-controls">
+          <button class="btn btn-sm btn-primary" id="btnSimulateVehicle" title="คลิกเพื่อจำลองรถยนต์วิ่งผ่านเซนเซอร์">
+            🚗 จำลองรถวิ่งผ่าน (< 30 cm)
+          </button>
+          <button class="btn btn-sm btn-secondary" id="btnSimulateLeave" title="คลิกเพื่อจำลองรถวิ่งพ้นระยะไป">
+            💨 จำลองรถพ้นระยะ
+          </button>
+        </div>
+      </div>
+
+      <!-- Road & Lamp Canvas / SVG Simulation Scene -->
+      <div class="street-scene-viewport" id="streetScene">
+        <div class="sky-backdrop">
+          <div class="moon"></div>
+          <div class="stars"></div>
+        </div>
+
+        <!-- Streetlight Structure -->
+        <div class="lamp-post">
+          <div class="pole"></div>
+          <div class="arm"></div>
+          <div class="lamp-head">
+            <div class="bulb-emitter" id="bulbEmitter"></div>
+            <!-- Dynamic Light Cone Beam -->
+            <div class="light-cone" id="lightCone"></div>
+          </div>
+          <!-- Ultrasonic Sensor Mounted on Post -->
+          <div class="ultrasonic-mount">
+            <div class="sensor-unit" id="sensorUnit">
+              <span class="eye eye-trig" title="Trig Pin 18"></span>
+              <span class="eye eye-echo" title="Echo Pin 19"></span>
+            </div>
+            <!-- Ultrasonic Radar Waves Beam -->
+            <div class="radar-beam" id="radarBeam">
+              <div class="wave wave-1"></div>
+              <div class="wave wave-2"></div>
+              <div class="wave wave-3"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Road Surface -->
+        <div class="road-surface">
+          <div class="road-markings"></div>
+          <!-- Vehicle Object -->
+          <div class="vehicle-actor" id="vehicleActor">
+            <div class="car-body">
+              <div class="car-top"></div>
+              <div class="car-light"></div>
+              <div class="wheel wheel-front"></div>
+              <div class="wheel wheel-back"></div>
+            </div>
+            <div class="vehicle-dist-tag" id="vehicleDistTag">350 cm</div>
+          </div>
+        </div>
+
+        <!-- Overlay HUD Status -->
+        <div class="hud-overlay">
+          <div class="hud-item">
+            <span class="hud-label">สถานะไฟ</span>
+            <span class="hud-val badge-off" id="hudLightStatus">ปิด (OFF)</span>
+          </div>
+          <div class="hud-item">
+            <span class="hud-label">โหมดปัจจุบัน</span>
+            <span class="hud-val badge-mode" id="hudModeStatus">AUTO (อัตโนมัติ)</span>
+          </div>
+          <div class="hud-item">
+            <span class="hud-label">เซนเซอร์ HC-SR04</span>
+            <span class="hud-val font-mono" id="hudDistance">-- cm</span>
+          </div>
+          <div class="hud-item" id="hudTimerBox" style="display: none;">
+            <span class="hud-label">เวลานับถอยหลัง</span>
+            <span class="hud-val font-mono text-warning" id="hudTimerValue">--:--:--</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Middle Grid: Control Panels & Telemetry -->
+    <div class="control-grid">
+
+      <!-- Panel 1: Master Mode & Manual Control -->
+      <section class="glass-card control-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            <h3>แผงควบคุมหลัก (Control Panel)</h3>
+          </div>
+          <span class="mode-badge" id="currentModeBadge">โหมดอัตโนมัติ</span>
+        </div>
+
+        <!-- Toggle Switch Manual vs Auto -->
+        <div class="control-group">
+          <label class="control-label">โหมดการทำงานของระบบ</label>
+          <div class="mode-selector-btn-group">
+            <button class="btn btn-mode active" id="btnSetAutoMode">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              อัตโนมัติ (Sensor Auto)
+            </button>
+            <button class="btn btn-mode" id="btnSetManualOn">
+              💡 สั่งเปิดไฟทันที (ON)
+            </button>
+            <button class="btn btn-mode" id="btnSetManualOff">
+              🌑 สั่งปิดไฟทันที (OFF)
+            </button>
+          </div>
+        </div>
+
+        <!-- Logic explanation pill -->
+        <div class="info-alert" id="autoLogicDesc">
+          <div class="info-icon">ℹ️</div>
+          <div>
+            <strong>กฎการทำงานอัตโนมัติ:</strong> ตรวจจับวัตถุระยะต่ำกว่า 30 ซม. -> ไฟติดทันที | เมื่อไม่พบวัตถุ -> <strong>หน่วงเวลาเปิดค้างไว้ 5 วินาที</strong> ก่อนปิดอัตโนมัติ
+          </div>
+        </div>
+
+        <!-- 5-Second Delay Progress Bar -->
+        <div class="delay-progress-wrapper" id="delayProgressWrapper">
+          <div class="delay-labels">
+            <span>การหน่วงเวลาปิดไฟหลังรถพ้นระยะ:</span>
+            <span class="font-mono text-cyan" id="delayCountdownText">ไม่ได้ทำงาน</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="delayProgressBar"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Panel 2: Timer Override (กำหนดเวลาเปิดไฟ เช่น 12 ชั่วโมง) -->
+      <section class="glass-card timer-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <h3>ตั้งเวลาเปิดไฟค้างพิเศษ (Timer Override)</h3>
+          </div>
+          <span class="tag-badge">เมื่อหมดเวลาจะกลับ Auto</span>
+        </div>
+
+        <p class="timer-desc">
+          ใช้เมื่อต้องการเปิดไฟค้างไว้นานเป็นพิเศษ เช่น ตลอดคืน <strong>12 ชั่วโมง</strong> โดยเมื่อครบเวลา ระบบจะสลับกลับเข้าสู่ <strong>โหมดอัตโนมัติ (ตรวจจับเซนเซอร์)</strong> ทันที
+        </p>
+
+        <!-- Preset Quick Buttons -->
+        <div class="timer-presets">
+          <button class="btn btn-preset" data-duration="43200" id="btn12Hours">
+            <span class="preset-time">12 ชม.</span>
+            <span class="preset-label">ตลอดคืน (12 Hours)</span>
+          </button>
+          <button class="btn btn-preset" data-duration="3600" id="btn1Hour">
+            <span class="preset-time">1 ชม.</span>
+            <span class="preset-label">ชั่วคราว (1 Hour)</span>
+          </button>
+          <button class="btn btn-preset" data-duration="1800" id="btn30Mins">
+            <span class="preset-time">30 นาที</span>
+            <span class="preset-label">ครึ่งชั่วโมง (30 Mins)</span>
+          </button>
+          <button class="btn btn-preset" data-duration="30" id="btn30SecDemo" title="สำหรับทดสอบแสดงครูใน 30 วินาที">
+            <span class="preset-time">30 วิ.</span>
+            <span class="preset-label">⚡ เดโม (30s Test)</span>
+          </button>
+        </div>
+
+        <!-- Custom Timer Input -->
+        <div class="custom-timer-row">
+          <div class="input-with-label">
+            <label for="customHoursInput">กำหนดชั่วโมง:</label>
+            <input type="number" id="customHoursInput" min="0" max="24" value="12" class="num-input">
+          </div>
+          <div class="input-with-label">
+            <label for="customMinsInput">นาที:</label>
+            <input type="number" id="customMinsInput" min="0" max="59" value="0" class="num-input">
+          </div>
+          <button class="btn btn-warning" id="btnStartCustomTimer">
+            เริ่มจับเวลา
+          </button>
+        </div>
+
+        <!-- Active Timer Display Box -->
+        <div class="active-timer-box" id="activeTimerBox" style="display: none;">
+          <div class="active-timer-header">
+            <div class="timer-pulse-icon">⏳</div>
+            <div>
+              <div class="timer-active-title">กำลังเปิดไฟค้างตามเวลาที่กำหนด</div>
+              <div class="timer-active-sub" id="timerTotalDurationText">ระยะเวลารวม: 12 ชม.</div>
+            </div>
+            <button class="btn btn-sm btn-danger" id="btnCancelTimer">
+              ยกเลิก / กลับสู่ Auto
+            </button>
+          </div>
+
+          <div class="timer-big-countdown font-mono" id="bigCountdownDisplay">
+            11:59:59
+          </div>
+
+          <div class="timer-progress-track">
+            <div class="timer-progress-bar" id="timerProgressBar" style="width: 100%;"></div>
+          </div>
+
+          <!-- Simulation Speed Accelerator for Presentation -->
+          <div class="speed-accelerator">
+            <span>⏩ สำหรับพรีเซนต์ครู: เร่งความเร็วเวลา x</span>
+            <button class="btn btn-chip active" data-multiplier="1">1x (ปกติ)</button>
+            <button class="btn btn-chip" data-multiplier="60">60x (1วิ=1นาที)</button>
+            <button class="btn btn-chip" data-multiplier="3600">3600x (1วิ=1ชม.)</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Telemetry Metric Cards -->
+    <div class="metrics-grid">
+      <div class="glass-card metric-card">
+        <div class="metric-icon bg-cyan">🚗</div>
+        <div class="metric-content">
+          <span class="metric-title">จำนวนรถที่ผ่านทั้งหมด</span>
+          <div class="metric-val" id="metricTotalVehicles">0</div>
+          <span class="metric-trend text-cyan">คัน (บันทึกอัตโนมัติ)</span>
+        </div>
+      </div>
+      <div class="glass-card metric-card">
+        <div class="metric-icon bg-amber">⚡</div>
+        <div class="metric-content">
+          <span class="metric-title">ประหยัดพลังงานได้</span>
+          <div class="metric-val" id="metricEnergySaved">76.4%</div>
+          <span class="metric-trend text-emerald">เทียบกับไฟที่เปิดทิ้งไว้ตลอด</span>
+        </div>
+      </div>
+      <div class="glass-card metric-card">
+        <div class="metric-icon bg-purple">⏱️</div>
+        <div class="metric-content">
+          <span class="metric-title">ระยะทางเซนเซอร์ล่าสุด</span>
+          <div class="metric-val font-mono" id="metricCurrentDistance">--</div>
+          <span class="metric-trend" id="metricDistanceStatus">ซม. (HC-SR04)</span>
+        </div>
+      </div>
+      <div class="glass-card metric-card">
+        <div class="metric-icon bg-green">🟢</div>
+        <div class="metric-content">
+          <span class="metric-title">สถานะไฟถนน (Relay)</span>
+          <div class="metric-val text-off" id="metricRelayPin">OFF (HIGH)</div>
+          <span class="metric-trend text-muted">GPIO 2 (Active Low)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics & Traffic History Section -->
+    <section class="glass-card analytics-section">
+      <div class="card-header">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          <h3>การวิเคราะห์ข้อมูลการจราจร & ประวัติย้อนหลัง (Traffic Data Analytics)</h3>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-sm btn-outline" id="btnExportCSV">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            ดาวน์โหลดไฟล์ CSV (สำหรับส่งครู)
+          </button>
+          <button class="btn btn-sm btn-danger-outline" id="btnClearHistory">
+            ล้างข้อมูลประวัติ
+          </button>
+        </div>
+      </div>
+
+      <!-- Traffic Chart Container -->
+      <div class="chart-box">
+        <h4 class="subheading">กราฟสถิติจำนวนรถยนต์ที่สัญจรตามช่วงเวลา (Traffic Volume per Hour)</h4>
+        <div class="chart-canvas-wrapper">
+          <canvas id="trafficChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Historical Data Table -->
+      <div class="table-container">
+        <div class="table-toolbar">
+          <h4 class="subheading">ตารางบันทึกการตรวจจับวัตถุและระยะเวลาเปิดไฟย้อนหลัง</h4>
+          <div class="table-search">
+            <input type="text" id="searchInput" placeholder="ค้นหาตามวันที่ หรือเหตุการณ์..." class="search-field">
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table" id="logsTable">
+            <thead>
+              <tr>
+                <th width="80">ลำดับ</th>
+                <th>วันและเวลา (Timestamp)</th>
+                <th>ระยะที่เซนเซอร์ตรวจพบ (cm)</th>
+                <th>ระยะเวลาที่เปิดไฟ</th>
+                <th>โหมดการทำงาน</th>
+                <th>ผลการวิเคราะห์การจราจร</th>
+              </tr>
+            </thead>
+            <tbody id="logsTableBody">
+              <!-- Dynamic Rows inserted via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer">
+          <span class="text-muted" id="tableCountSummary">แสดงทั้งหมด 0 รายการ</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal: ESP32 Hardware Connection Settings -->
+  <div class="modal-backdrop" id="settingsModal" style="display: none;">
+    <div class="modal-box glass-card">
+      <div class="modal-header">
+        <h3>การตั้งค่าเชื่อมต่อกับบอร์ด ESP32 จริง</h3>
+        <button class="modal-close" id="btnCloseModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">
+          คุณสามารถเลือกใช้งานโหมดจำลอง (สำหรับทดสอบพรีเซนต์) หรือกรอก IP Address ของ ESP32 เมื่อต่อ WiFi เข้าวงแลนเดียวกัน
+        </p>
+
+        <div class="form-group">
+          <label class="toggle-container">
+            <input type="checkbox" id="chkSimulationMode" checked>
+            <span class="toggle-slider"></span>
+            <span class="toggle-label font-bold">เปิดใช้งานโหมดจำลอง (Simulation Mode)</span>
+          </label>
+        </div>
+
+        <div class="form-group" id="esp32ConfigGroup" style="opacity:0.5; pointer-events:none;">
+          <label for="espIpInput">IP Address ของ ESP32 (เช่น http://192.168.1.150):</label>
+          <input type="text" id="espIpInput" class="text-input" placeholder="http://192.168.1.100" value="http://192.168.1.100">
+          <span class="input-hint">ดู IP Address ได้จาก Serial Monitor (115200 baud) เมื่อ ESP32 เชื่อมต่อ WiFi สำเร็จ</span>
+        </div>
+
+        <div class="connection-test-row">
+          <button class="btn btn-outline" id="btnTestEspConnection">
+            ทดสอบการเชื่อมต่อ (Ping)
+          </button>
+          <span id="pingResultText" class="font-mono text-muted"></span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btnSaveSettings">บันทึกการตั้งค่า</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <p>โครงงาน IoT: หลอดไฟอัจฉริยะวิเคราะห์การจราจร (Smart Streetlight & Traffic Analytics)</p>
+    <p class="text-muted">พัฒนาด้วย ESP32, HC-SR04 Ultrasonic Sensor, Relay & Web Dashboard</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
